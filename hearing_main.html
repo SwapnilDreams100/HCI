@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html" charset="utf-8"/>
+  <title>HCI Hearing App</title>
+
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet">
+  
+  <script src="js/hearing.js"></script>
+  <script src="js/canvasjs.min.js"></script>
+  <script src="js/jquery.min.js"></script>
+  
+  
+  <script src="https://unpkg.com/@tensorflow/tfjs-core@2.1.0/dist/tf-core.js"></script>
+  <script src="https://unpkg.com/@tensorflow/tfjs-converter@2.1.0/dist/tf-converter.js"></script>
+
+  <script src="https://unpkg.com/@tensorflow/tfjs-backend-webgl@2.1.0/dist/tf-backend-webgl.js"></script>
+  <script src="https://unpkg.com/@tensorflow-models/handpose@0.0.6/dist/handpose.js"></script>
+  <script src="js/fingerpose.js" type="text/javascript"></script>
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background-color: #333333;
+      color: #ffffff;
+      
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    #video-container {
+    /*  width: 640px;
+      height: 480px;
+      position: relative;
+    */}
+
+    .layer {
+      position: absolute;
+      /*top: 0;*/
+      /*left: 0;*/
+      /*width: 100%;*/
+      /*height: 100%;*/
+    }
+
+    #pose-video {
+      transform: scaleX(-1);
+    }
+
+    #pose-result {
+      font-size: 50px;
+      /*text-align: right;*/
+      font-color: white;
+      /*padding: 20px 30px 0 0;*/
+    }
+
+    .div_spacing{
+        margin-bottom: 200px;
+    }
+    
+    body {
+      font-size: 20px;
+      font-family: 'Open Sans', sans-serif;
+      /*font-color: white;
+      color: #333;*/
+      }
+
+    .received_msg {
+      display: inline-block;
+      padding: 0 0 0 10px;
+      vertical-align: top;
+      width: 92%;
+     }
+     .received_withd_msg p {
+      background: #ebebeb none repeat scroll 0 0;
+      border-radius: 3px;
+      color: #646464;
+      font-size: 14px;
+      margin: 0;
+      padding: 5px 10px 5px 12px;
+      width: 100%;
+    }
+
+    .received_withd_msg { width: 57%;}
+    .mesgs {
+      float: left;
+      padding: 30px 15px 0 25px;
+      width: 60%;
+    }
+
+    .sent_msg p {
+      background: #05728f none repeat scroll 0 0;
+      border-radius: 3px;
+      font-size: 14px;
+      margin: 0; color:#fff;
+      padding: 5px 10px 5px 12px;
+      width:100%;
+    }
+    .outgoing_msg{ overflow:hidden; margin:26px 0 26px;}
+    .sent_msg {
+      float: right;
+      width: 46%;
+    }
+
+    .msg_history {
+      height: 516px;
+      overflow-y: auto;
+    }
+    .type_msg {border-top: 1px solid #c4c4c4;position: relative;}
+    .input_msg_write input {
+      background: rgba(0, 0, 0, 0) none repeat scroll 0 0;
+      border: medium none;
+      color: #4c4c4c;
+      font-size: 15px;
+      min-height: 48px;
+      width: 100%;
+    }
+    .msg_send_btn {
+      background: #05728f none repeat scroll 0 0;
+      border: medium none;
+      border-radius: 50%;
+      color: #fff;
+      cursor: pointer;
+      font-size: 17px;
+      height: 33px;
+      position: absolute;
+      right: 0;
+      top: 11px;
+      width: 33px;
+    }
+    
+  </style>
+</head>
+<body>
+
+  <div align="center" aria-hidden="true">
+     <!-- /*<img style="max-width:5%; max-height:5%;" src="images/codes.png" /> */ -->
+     <font size="8" >HCI WEBAPP</font>
+  </div>
+  <!-- <button id = 'test'>pp</button> -->
+  <div style="width: 100%; overflow: hidden;">   
+        <div  id = "visual_div" aria-live="polite" style="width: 50%; float: left;">
+          <span>Chat Box</span><br/>
+              <!-- <div class="panel-body  fixed-panel"> -->
+              <div class="mesgs">
+                  <div class="msg_history"></div>                                                                            
+                  <div class="type_msg">
+                      <div class="input_msg_write">
+                    <input type="text" id= 'add_text' class="write_msg" placeholder="Type a message" />
+                    <button id = 'send_it' class="msg_send_btn" type="button" onclick="process(document.getElementById('add_text').value)"><i class="fa fa-paper-plane-o" aria-hidden="true"></i></button>
+                      </div>
+                  </div>                                  
+             </div>
+        </div>
+        Text: <span id="pose-result"></span>
+        <div id="video-container" style="margin-left: 50%, height: 100px; ">
+          <video id="pose-video" class="layer" playsinline></video>
+          <canvas id="pose-canvas" class="layer"></canvas>
+        </div>
+  </div>  
+
+  
+
+  <script>
+    var total = '';
+    var prev  = '';
+    const config = {
+      video: { width: 640, height: 480, fps: 30 }
+    };
+
+    const landmarkColors = {
+      thumb: 'red',
+      indexFinger: 'blue',
+      middleFinger: 'yellow',
+      ringFinger: 'green',
+      pinky: 'pink',
+      palmBase: 'white'
+    };
+
+// ###################################### P A I N   B E G I N S ############################################
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+GestureDescription = fp.GestureDescription;
+Finger = fp.Finger;
+FingerCurl = fp.FingerCurl;
+FingerDirection = fp.FingerDirection;
+
+const aSign = new GestureDescription('A');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Index",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Diagonal Up Left"
+//     ]
+//   ]
+
+//Thumb
+aSign.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+aSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+// aSign.addDirection(Finger.Index, FingerDirection.DiagonalUpLeft, 0.70);
+
+//Index
+aSign.addCurl(Finger.Index, FingerCurl.FullCurl, 1);
+aSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+// aSign.addDirection(Finger.Index, FingerDirection.DiagonalUpLeft, 0.70);
+
+//Middle
+aSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+aSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+// aSign.addDirection(Finger.Middle, FingerDirection.DiagonalUpLeft, 0.70);
+
+//Ring
+aSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+aSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+aSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+aSign.addDirection(Finger.Pinky, FingerDirection.VerticalUp, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const bSign = new GestureDescription('B');
+// [
+//     [
+//       "Thumb",
+//       "Half Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Index",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Middle",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "No Curl",
+//       "Vertical Up"
+//     ]
+//   ]
+
+//Thumb
+bSign.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+bSign.addDirection(Finger.Index, FingerDirection.DiagonalUpLeft, 0.70);
+bSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Index
+bSign.addCurl(Finger.Index, FingerCurl.NoCurl, 1);
+bSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Middle
+bSign.addCurl(Finger.Middle, FingerCurl.NoCurl, 1);
+bSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+bSign.addCurl(Finger.Ring, FingerCurl.NoCurl, 1);
+bSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+
+//Pinky
+bSign.addCurl(Finger.Pinky, FingerCurl.NoCurl, 1);
+bSign.addDirection(Finger.Pinky, FingerDirection.VerticalUp, 0.70);
+
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const cSign = new GestureDescription('C');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Index",
+//       "Half Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Middle",
+//       "Half Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Ring",
+//       "Half Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Pinky",
+//       "Half Curl",
+//       "Diagonal Up Right"
+//     ]
+//   ]
+
+//Thumb
+cSign.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+cSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Index
+cSign.addCurl(Finger.Index, FingerCurl.NoCurl, 1);
+cSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Middle
+cSign.addCurl(Finger.Middle, FingerCurl.HalfCurl, 1);
+cSign.addDirection(Finger.Middle, FingerDirection.DiagonalUpRight, 0.70);
+
+//Ring
+cSign.addCurl(Finger.Ring, FingerCurl.HalfCurl, 1);
+cSign.addDirection(Finger.Ring, FingerDirection.DiagonalUpRight, 0.70);
+
+//Pinky
+cSign.addCurl(Finger.Pinky, FingerCurl.HalfCurl, 1);
+cSign.addDirection(Finger.Pinky, FingerDirection.DiagonalUpRight, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const dSign = new GestureDescription('D');
+// [
+//     [
+//       "Thumb",
+//       "Half Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Index",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Vertical Up"
+//     ]
+//   ]
+
+//Thumb
+dSign.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+dSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Index
+dSign.addCurl(Finger.Index, FingerCurl.NoCurl, 1);
+dSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Middle
+dSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+dSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+dSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+dSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+dSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+dSign.addDirection(Finger.Pinky, FingerDirection.VerticalUp, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const eSign = new GestureDescription('E');
+// [
+//     [
+//       "Thumb",
+//       "Half Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Index",
+//       "Half Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Vertical Up"
+//     ]
+//   ]
+
+//Thumb
+eSign.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+eSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Index
+eSign.addCurl(Finger.Index, FingerCurl.FullCurl, 1);
+eSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Middle
+eSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+eSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+eSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+eSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+eSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+eSign.addDirection(Finger.Pinky, FingerDirection.VerticalUp, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const fSign = new GestureDescription('F');
+// [
+//     [
+//       "Thumb",
+//       "Half Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Index",
+//       "Full Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Middle",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "No Curl",
+//       "Vertical Up"
+//     ]
+//   ]
+
+//Thumb
+fSign.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+fSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Index
+fSign.addCurl(Finger.Index, FingerCurl.FullCurl, 1);
+fSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Middle
+fSign.addCurl(Finger.Middle, FingerCurl.NoCurl, 1);
+fSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+fSign.addCurl(Finger.Ring, FingerCurl.NoCurl, 1);
+fSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+fSign.addCurl(Finger.Pinky, FingerCurl.NoCurl, 1);
+fSign.addDirection(Finger.Pinky, FingerDirection.VerticalUp, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const gSign = new GestureDescription('G');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Index",
+//       "Half Curl",
+//       "Horizontal Right"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Horizontal Right"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Horizontal Right"
+//     ]
+//   ]
+
+//Thumb
+gSign.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+gSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Index
+gSign.addCurl(Finger.Index, FingerCurl.NoCurl, 1);
+gSign.addDirection(Finger.Index, FingerDirection.HorizontalRight, 0.70);
+
+//Middle
+gSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+gSign.addDirection(Finger.Middle, FingerDirection.DiagonalUpRight, 0.70);
+
+//Ring
+gSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+gSign.addDirection(Finger.Ring, FingerDirection.HorizontalRight, 0.70);
+
+//Pinky
+gSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+gSign.addDirection(Finger.Pinky, FingerDirection.HorizontalRight, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const hSign = new GestureDescription('H');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Horizontal Right"
+//     ],
+//     [
+//       "Index",
+//       "No Curl",
+//       "Horizontal Right"
+//     ],
+//     [
+//       "Middle",
+//       "No Curl",
+//       "Horizontal Right"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Horizontal Right"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Horizontal Right"
+//     ]
+//   ]
+
+//Thumb
+hSign.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+hSign.addDirection(Finger.Index, FingerDirection.HorizontalRight, 0.70);
+
+//Index
+hSign.addCurl(Finger.Index, FingerCurl.NoCurl, 1);
+hSign.addDirection(Finger.Index, FingerDirection.HorizontalRight, 0.70);
+
+//Middle
+hSign.addCurl(Finger.Middle, FingerCurl.NoCurl, 1);
+hSign.addDirection(Finger.Middle, FingerDirection.HorizontalRight, 0.70);
+
+//Ring
+hSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+hSign.addDirection(Finger.Ring, FingerDirection.HorizontalRight, 0.70);
+
+//Pinky
+hSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+hSign.addDirection(Finger.Pinky, FingerDirection.HorizontalRight, 0.70);
+
+// import {aSign} from './Asign';
+// import {bSign} from './Bsign';
+// import {cSign} from './Csign';
+// import {dSign} from './Dsign';
+// import {eSign} from './Esign';
+// import {fSign} from './Fsign';
+// import {gSign} from './Gsign';
+// import {hSign} from './Hsign';
+// import {iSign} from './Isign';
+// import {jSign} from './Jsign';
+// import {kSign} from './Ksign';
+// import {lSign} from './Lsign';
+// import {mSign} from './Msign';
+// import {nSign} from './Nsign';
+// import {oSign} from './Osign';
+// import {pSign} from './Psign';
+// import {qSign} from './Qsign';
+// import {rSign} from './Rsign';
+// import {sSign} from './Ssign';
+// import {tSign} from './Tsign';
+// import {uSign} from './Usign';
+// import {vSign} from './Vsign';
+// import {wSign} from './Wsign';
+// import {xSign} from './Xsign';
+// import {ySign} from './Ysign';
+// import {zSign} from './Zsign';
+
+
+
+// const Handsigns = {
+//     aSign,
+//     bSign,
+//     cSign,
+//     dSign,
+//     eSign,
+//     fSign,
+//     gSign,
+//     hSign,
+//     iSign,
+//     jSign,
+//     kSign,
+//     lSign,
+//     mSign,
+//     nSign,
+//     oSign,
+//     pSign,
+//     qSign,
+//     rSign,
+//     sSign,
+//     tSign,
+//     uSign,
+//     vSign,
+//     wSign,
+//     xSign,
+//     ySign,
+//     zSign,
+// }
+
+
+// export default Handsigns;// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const iSign = new GestureDescription('I');
+// [
+//     [
+//       "Thumb",
+//       "Half Curl",
+//       "Diagonal Up Left"
+//     ],
+//     [
+//       "Index",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "No Curl",
+//       "Vertical Up"
+//     ]
+//   ]
+
+//Thumb
+iSign.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+iSign.addDirection(Finger.Index, FingerDirection.DiagonalUpLeft, 0.70);
+
+//Index
+iSign.addCurl(Finger.Index, FingerCurl.FullCurl, 1);
+iSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Middle
+iSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+iSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+iSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+iSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+iSign.addCurl(Finger.Pinky, FingerCurl.NoCurl, 1);
+iSign.addDirection(Finger.Pinky, FingerDirection.VerticalUp, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const jSign = new GestureDescription('J');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Index",
+//       "Full Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Horizontal Right"
+//     ],
+//     [
+//       "Pinky",
+//       "No Curl",
+//       "Horizontal Right"
+//     ]
+//   ]
+
+//Thumb
+jSign.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+jSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Index
+jSign.addCurl(Finger.Index, FingerCurl.FullCurl, 1);
+jSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Middle
+jSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+jSign.addDirection(Finger.Middle, FingerDirection.DiagonalUpRight, 0.70);
+
+//Ring
+jSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+jSign.addDirection(Finger.Ring, FingerDirection.HorizontalRight, 0.70);
+
+//Pinky
+jSign.addCurl(Finger.Pinky, FingerCurl.NoCurl, 1);
+jSign.addDirection(Finger.Pinky, FingerDirection.HorizontalRight, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const kSign = new GestureDescription('K');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Diagonal Up Left"
+//     ],
+//     [
+//       "Index",
+//       "No Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Middle",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Vertical Up"
+//     ]
+//   ]
+
+//Thumb
+kSign.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+kSign.addDirection(Finger.Index, FingerDirection.DiagonalUpLeft, 0.70);
+
+//Index
+kSign.addCurl(Finger.Index, FingerCurl.NoCurl, 1);
+kSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Middle
+kSign.addCurl(Finger.Middle, FingerCurl.NoCurl, 1);
+kSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+kSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+kSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+kSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+kSign.addDirection(Finger.Pinky, FingerDirection.VerticalUp, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const lSign = new GestureDescription('L');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Index",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Vertical Up"
+//     ]
+//   ]
+
+//Thumb
+lSign.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+lSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Index
+lSign.addCurl(Finger.Index, FingerCurl.NoCurl, 1);
+lSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Middle
+lSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+lSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+lSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+lSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+lSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+lSign.addDirection(Finger.Pinky, FingerDirection.VerticalUp, 0.70);
+
+
+
+ const mSign = new GestureDescription('M');
+// [
+//     [
+//       "Thumb",
+//       "Half Curl",
+//       "Diagonal Up Left"
+//     ],
+//     [
+//       "Index",
+//       "Full Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Vertical Up"
+//     ]
+//   ]
+
+//Thumb
+mSign.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+mSign.addDirection(Finger.Index, FingerDirection.DiagonalUpLeft, 0.70);
+
+//Index
+mSign.addCurl(Finger.Index, FingerCurl.FullCurl, 1);
+mSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Middle
+mSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+mSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+mSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+mSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+mSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+mSign.addDirection(Finger.Pinky, FingerDirection.VerticalUp, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const nSign = new GestureDescription('N');
+// [
+//     [
+//       "Thumb",
+//       "Half Curl",
+//       "Diagonal Up Left"
+//     ],
+//     [
+//       "Index",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Diagonal Up Left"
+//     ]
+//   ]
+
+//Thumb
+nSign.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+nSign.addDirection(Finger.Index, FingerDirection.DiagonalUpLeft, 0.70);
+
+//Index
+nSign.addCurl(Finger.Index, FingerCurl.FullCurl, 1);
+nSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Middle
+nSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+nSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+nSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+nSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+nSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+nSign.addDirection(Finger.Pinky, FingerDirection.DiagonalUpLeft, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const oSign = new GestureDescription('O');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Index",
+//       "Half Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Middle",
+//       "Half Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Ring",
+//       "Half Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Pinky",
+//       "Half Curl",
+//       "Diagonal Up Right"
+//     ]
+//   ]
+
+//Thumb
+oSign.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+oSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Index
+oSign.addCurl(Finger.Index, FingerCurl.HalfCurl, 1);
+oSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Middle
+oSign.addCurl(Finger.Middle, FingerCurl.HalfCurl, 1);
+oSign.addDirection(Finger.Middle, FingerDirection.DiagonalUpRight, 0.70);
+
+//Ring
+oSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+oSign.addDirection(Finger.Ring, FingerDirection.DiagonalUpRight, 0.70);
+
+//Pinky
+oSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+oSign.addDirection(Finger.Pinky, FingerDirection.DiagonalUpRight, 0.70);
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const pSign = new GestureDescription('P');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Horizontal Right"
+//     ],
+//     [
+//       "Index",
+//       "No Curl",
+//       "Horizontal Right"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Horizontal Right"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Horizontal Right"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Diagonal Down Right"
+//     ]
+//   ]
+
+//Thumb
+pSign.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+pSign.addDirection(Finger.Index, FingerDirection.HorizontalRight, 0.70);
+
+//Index
+pSign.addCurl(Finger.Index, FingerCurl.NoCurl, 1);
+pSign.addDirection(Finger.Index, FingerDirection.HorizontalRight, 0.70);
+
+//Middle
+pSign.addCurl(Finger.Middle, FingerCurl.HalfCurl, 1);
+pSign.addDirection(Finger.Middle, FingerDirection.DiagonalDownRight, 0.70);
+
+//Ring
+pSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+pSign.addDirection(Finger.Ring, FingerDirection.DiagonalDownRight, 0.70);
+
+//Pinky
+pSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+pSign.addDirection(Finger.Pinky, FingerDirection.DiagonalDownRight, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const qSign = new GestureDescription('Q');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Vertical Down"
+//     ],
+//     [
+//       "Index",
+//       "Half Curl",
+//       "Vertical Down"
+//     ],
+//     [
+//       "Middle",
+//       "Half Curl",
+//       "Vertical Down"
+//     ],
+//     [
+//       "Ring",
+//       "Half Curl",
+//       "Vertical Down"
+//     ],
+//     [
+//       "Pinky",
+//       "Half Curl",
+//       "Diagonal Down Left"
+//     ]
+//   ]
+
+//Thumb
+qSign.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+qSign.addDirection(Finger.Index, FingerDirection.DiagonalDownRight, 0.70);
+
+//Index
+qSign.addCurl(Finger.Index, FingerCurl.HalfCurl, 1);
+qSign.addDirection(Finger.Index, FingerDirection.HorizontalRight, 0.70);
+
+//Middle
+qSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+qSign.addDirection(Finger.Middle, FingerDirection.HorizontalRight, 0.70);
+
+//Ring
+qSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+qSign.addDirection(Finger.Ring, FingerDirection.DiagonalDownRight, 0.70);
+
+//Pinky
+qSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+qSign.addDirection(Finger.Pinky, FingerDirection.DiagonalDownRight, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const rSign = new GestureDescription('R');
+// [
+//     [
+//       "Thumb",
+//       "Half Curl",
+//       "Diagonal Up Left"
+//     ],
+//     [
+//       "Index",
+//       "No Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Middle",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Vertical Up"
+//     ]
+//   ]
+
+//Thumb
+rSign.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+rSign.addDirection(Finger.Index, FingerDirection.DiagonalUpLeft, 0.70);
+
+//Index
+rSign.addCurl(Finger.Index, FingerCurl.NoCurl, 1);
+rSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Middle
+rSign.addCurl(Finger.Middle, FingerCurl.NoCurl, 1);
+rSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+rSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+rSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+rSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+rSign.addDirection(Finger.Pinky, FingerDirection.VerticalUp, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const sSign = new GestureDescription('S');
+// [
+//     [
+//       "Thumb",
+//       "Half Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Index",
+//       "Full Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Diagonal Up Left"
+//     ]
+//   ]
+
+//Thumb
+sSign.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+sSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Index
+sSign.addCurl(Finger.Index, FingerCurl.FullCurl, 1);
+sSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Middle
+sSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+sSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+sSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+sSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+sSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+sSign.addDirection(Finger.Pinky, FingerDirection.DiagonalUpLeft, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const tSign = new GestureDescription('T');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Index",
+//       "Full Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Diagonal Up Left"
+//     ]
+//   ]
+
+//Thumb
+tSign.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+tSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Index
+tSign.addCurl(Finger.Index, FingerCurl.FullCurl, 1);
+tSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Middle
+tSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+tSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+tSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+tSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+tSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+tSign.addDirection(Finger.Pinky, FingerDirection.DiagonalUpLeft, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const uSign = new GestureDescription('U');
+// [
+//     [
+//       "Thumb",
+//       "Half Curl",
+//       "Diagonal Up Left"
+//     ],
+//     [
+//       "Index",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Middle",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Vertical Up"
+//     ]
+//   ]
+
+//Thumb
+uSign.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+uSign.addDirection(Finger.Index, FingerDirection.DiagonalUpLeft, 0.70);
+
+//Index
+uSign.addCurl(Finger.Index, FingerCurl.NoCurl, 1);
+uSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Middle
+uSign.addCurl(Finger.Middle, FingerCurl.NoCurl, 1);
+uSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+uSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+uSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+uSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+uSign.addDirection(Finger.Pinky, FingerDirection.DiagonalUpLeft, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const vSign = new GestureDescription('V');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Diagonal Up Left"
+//     ],
+//     [
+//       "Index",
+//       "No Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Middle",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Diagonal Up Left"
+//     ]
+//   ]
+
+//Thumb
+vSign.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+vSign.addDirection(Finger.Index, FingerDirection.DiagonalUpLeft, 0.70);
+
+//Index
+vSign.addCurl(Finger.Index, FingerCurl.NoCurl, 1);
+vSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Middle
+vSign.addCurl(Finger.Middle, FingerCurl.NoCurl, 1);
+vSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+vSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+vSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+vSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+vSign.addDirection(Finger.Pinky, FingerDirection.DiagonalUpLeft, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const wSign = new GestureDescription('W');
+// [
+//     [
+//       "Thumb",
+//       "Half Curl",
+//       "Diagonal Up Left"
+//     ],
+//     [
+//       "Index",
+//       "No Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Middle",
+//       "No Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "No Curl",
+//       "Diagonal Up Left"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Diagonal Up Left"
+//     ]
+//   ]
+
+//Thumb
+wSign.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+wSign.addDirection(Finger.Index, FingerDirection.DiagonalUpLeft, 0.70);
+
+//Index
+wSign.addCurl(Finger.Index, FingerCurl.NoCurl, 1);
+wSign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Middle
+wSign.addCurl(Finger.Middle, FingerCurl.NoCurl, 1);
+wSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+wSign.addCurl(Finger.Ring, FingerCurl.NoCurl, 1);
+wSign.addDirection(Finger.Ring, FingerDirection.DiagonalUpLeft, 0.70);
+
+//Pinky
+wSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+wSign.addDirection(Finger.Pinky, FingerDirection.DiagonalUpLeft, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const xSign = new GestureDescription('X');
+// [
+//     [
+//       "Thumb",
+//       "Half Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Index",
+//       "Half Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Middle",
+//       "Half Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Vertical Up"
+//     ]
+//   ]
+
+//Thumb
+xSign.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+xSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Index
+xSign.addCurl(Finger.Index, FingerCurl.HalfCurl, 1);
+xSign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Middle
+xSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+xSign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+xSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+xSign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+xSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+xSign.addDirection(Finger.Pinky, FingerDirection.VerticalUp, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const ySign = new GestureDescription('Y');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Diagonal Up Right"
+//     ],
+//     [
+//       "Index",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Vertical Up"
+//     ],
+//     [
+//       "Pinky",
+//       "No Curl",
+//       "Diagonal Up Left"
+//     ]
+//   ]
+
+//Thumb
+ySign.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+ySign.addDirection(Finger.Index, FingerDirection.DiagonalUpRight, 0.70);
+
+//Index
+ySign.addCurl(Finger.Index, FingerCurl.FullCurl, 1);
+ySign.addDirection(Finger.Index, FingerDirection.VerticalUp, 0.70);
+
+//Middle
+ySign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+ySign.addDirection(Finger.Middle, FingerDirection.VerticalUp, 0.70);
+
+//Ring
+ySign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+ySign.addDirection(Finger.Ring, FingerDirection.VerticalUp, 0.70);
+
+//Pinky
+ySign.addCurl(Finger.Pinky, FingerCurl.NoCurl, 1);
+ySign.addDirection(Finger.Pinky, FingerDirection.DiagonalUpLeft, 0.70);
+
+// import {Finger, FingerCurl, FingerDirection, GestureDescription} from 'fingerpose';
+
+ const zSign = new GestureDescription('Z');
+// [
+//     [
+//       "Thumb",
+//       "No Curl",
+//       "Horizontal Left"
+//     ],
+//     [
+//       "Index",
+//       "No Curl",
+//       "Diagonal Up Left"
+//     ],
+//     [
+//       "Middle",
+//       "Full Curl",
+//       "Horizontal Left"
+//     ],
+//     [
+//       "Ring",
+//       "Full Curl",
+//       "Horizontal Left"
+//     ],
+//     [
+//       "Pinky",
+//       "Full Curl",
+//       "Horizontal Left"
+//     ]
+//   ]
+
+//Thumb
+zSign.addCurl(Finger.Thumb, FingerCurl.NoCurl, 0.8);
+zSign.addDirection(Finger.Index, FingerDirection.HorizontalLeft, 0.70);
+
+//Index
+zSign.addCurl(Finger.Index, FingerCurl.NoCurl, 1);
+zSign.addDirection(Finger.Index, FingerDirection.DiagonalUpLeft, 0.70);
+
+//Middle
+zSign.addCurl(Finger.Middle, FingerCurl.FullCurl, 1);
+zSign.addDirection(Finger.Middle, FingerDirection.HorizontalLeft, 0.70);
+
+//Ring
+zSign.addCurl(Finger.Ring, FingerCurl.FullCurl, 1);
+zSign.addDirection(Finger.Ring, FingerDirection.HorizontalLeft, 0.70);
+
+//Pinky
+zSign.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1);
+zSign.addDirection(Finger.Pinky, FingerDirection.HorizontalLeft, 0.70);
+
+// ###################################### P A I N   E N D S ############################################
+
+    async function main() {
+
+      const video = document.querySelector("#pose-video");
+      const canvas = document.querySelector("#pose-canvas");
+      const ctx = canvas.getContext("2d");
+
+      const resultLayer = document.querySelector("#pose-result");
+
+      // configure gesture estimator
+      // add "✌🏻" and "👍" as sample gestures
+      const knownGestures = [
+        // fp.Gestures.VictoryGesture,
+        fp.Gestures.ThumbsUpGesture,
+        aSign, bSign, cSign, dSign, 
+        eSign, fSign, gSign, hSign, 
+        iSign, jSign, kSign, lSign, 
+        mSign, nSign, oSign, pSign, 
+        qSign, rSign, sSign, tSign, 
+        uSign, vSign, wSign, xSign, 
+        ySign, zSign
+      ];
+      const GE = new fp.GestureEstimator(knownGestures);
+
+      // load handpose model
+      const model = await handpose.load();
+      console.log("Handpose model loaded");
+
+      // main estimation loop
+      const estimateHands = async () => {
+
+        // clear canvas overlay
+        ctx.clearRect(0, 0, config.video.width, config.video.height);
+        // resultLayer.innerText = '';
+
+        // get hand landmarks from video
+        // Note: Handpose currently only detects one hand at a time
+        // Therefore the maximum number of predictions is 1
+        const predictions = await model.estimateHands(video, true);
+
+        for(let i = 0; i < predictions.length; i++) {
+
+          // draw colored dots at each predicted joint position
+          for(let part in predictions[i].annotations) {
+            for(let point of predictions[i].annotations[part]) {
+              drawPoint(ctx, point[0], point[1], 3, landmarkColors[part]);
+            }
+          }
+
+          // now estimate gestures based on landmarks
+          // using a minimum confidence of 7.5 (out of 10)
+          const est = GE.estimate(predictions[i].landmarks, 7.5);
+
+          if(est.gestures.length > 0) {
+
+            // find gesture with highest confidence
+            let result = est.gestures.reduce((p, c) => { 
+              return (p.confidence > c.confidence) ? p : c;
+            });
+
+            if (result.name != 'thumbs_up'){
+              var z = document.createElement('span'); 
+              z.innerHTML = result.name;
+              resultLayer.appendChild(z);
+            }
+            else{
+              document.getElementById("add_text").value += resultLayer.innerText
+              resultLayer.innerText = '';
+            }              
+          }
+        }
+
+        // ...and so on
+        setTimeout(() => { estimateHands(); }, 1000 / config.video.fps);
+      };
+
+      estimateHands();
+      console.log("Starting predictions");
+    }
+
+    async function initCamera(width, height, fps) {
+
+      const constraints = {
+        audio: false,
+        video: {
+          facingMode: "user",
+          width: width,
+          height: height,
+          frameRate: { max: fps }
+        }
+      };
+
+      const video = document.querySelector("#pose-video");
+      video.width = width;
+      video.height = height;
+
+      // get video stream
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = stream;
+
+      return new Promise(resolve => {
+        video.onloadedmetadata = () => { resolve(video) };
+      });
+    }
+
+    function drawPoint(ctx, x, y, r, color) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+
+      initCamera(
+        config.video.width, config.video.height, config.video.fps
+      ).then(video => {
+        video.play();
+        video.addEventListener("loadeddata", event => {
+          console.log("Camera is ready");
+          main();
+        });
+      });
+
+      const canvas = document.querySelector("#pose-canvas");
+      canvas.width = config.video.width;
+      canvas.height = config.video.height;
+      console.log("Canvas initialized");
+    });
+  </script>
+
+</body>
+</html>
