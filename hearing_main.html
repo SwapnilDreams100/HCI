@@ -6,8 +6,12 @@
 
   <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet">
-  
-  <script src="js/hearing.js"></script>
+
+  <!-- Importing google fonts -->
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+	<link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@700&display=swap" rel="stylesheet">
+
+<!--   <script src="js/hearing.js"></script>
   <script src="js/canvasjs.min.js"></script>
   <script src="js/jquery.min.js"></script>
   
@@ -17,23 +21,26 @@
 
   <script src="https://unpkg.com/@tensorflow/tfjs-backend-webgl@2.1.0/dist/tf-backend-webgl.js"></script>
   <script src="https://unpkg.com/@tensorflow-models/handpose@0.0.6/dist/handpose.js"></script>
-  <script src="js/fingerpose.js" type="text/javascript"></script>
+  <script src="js/fingerpose.js" type="text/javascript"></script> -->
 
   <style>
+
 
     * {
       box-sizing: border-box;
       user-select: none;
+      text-shadow: 1px 1px 2px #50507c;
     }
 
     html, body {
       width: 100%;
       height: 100%;
       overflow: hidden;
-      font-family: Arial, sans-serif;
-      background-color: #333333;
-      color: #ffffff;
-      
+      font-family: 'Ubuntu', sans-serif;
+      background-color: #bfbfbf; /*#e0e0eb;*/
+      color: #101820FF;
+      border: 2px solid #50507c;
+      border-radius: 10px;
     }
 
     body {
@@ -141,18 +148,25 @@
       width: 33px;
     }
     
+    .header {
+    	color: #404040;
+    	font-family: 'Ubuntu', sans-serif;
+    	margin: 10px;
+
+    }
+
   </style>
 </head>
 <body>
 
-  <div align="center" aria-hidden="true">
+  <div align="center" aria-hidden="true" class="header">
      <!-- /*<img style="max-width:5%; max-height:5%;" src="images/codes.png" /> */ -->
-     <font size="8" >HCI WEBAPP</font>
+     <marquee> <font size="8" >HCI WEBAPP </font> </marquee>
   </div>
   <!-- <button id = 'test'>pp</button> -->
-  <div style="width: 100%; overflow: hidden;">   
-        <div  id = "visual_div" aria-live="polite" style="width: 50%; float: left;">
-          <span>Chat Box</span><br/>
+  <div style="width: 100%; overflow: hidden; display: flex; font-size: 25px;">   
+        <div  id = "visual_div" aria-live="polite" style="width: 50%; float: left; ">
+          <span style="margin: 20px; font-size: 25px;"> Chat box: </span><br/>
               <!-- <div class="panel-body  fixed-panel"> -->
               <div class="mesgs">
                   <div class="msg_history"></div>                                                                            
