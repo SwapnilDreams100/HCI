@@ -1,104 +1,119 @@
 <!DOCTYPE html>
 <html>
-    <head lang="en">
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>HCI</title>
-        <script src="js/canvasjs.min.js"></script>
-        <script src="js/jquery.min.js"></script>
-        <!-- <script src="js/bootstrap.min.js"></script> -->
-        <!-- <link rel="stylesheet" href="custom-select.css">  -->
-        <!-- <link rel="stylesheet" href="modal.css">   -->
-        <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
-        <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet">
-        
-        <script src="js/speech.js"></script>
-        <style type="text/css">         
-                .div_spacing{
-                    margin-bottom: 200px;
-                }
-                
-                .button1 {
-                    background-color: white; 
-                    color: black; 
-                    border-radius: 12px;
-                    border: 2px solid #4CAF50;
-                    transition-duration: 0.3s;
-                }
-               .button1:hover {
-                    background-color: #4CAF50;
-                    color: white;
-                }       
-                body {
-                  font-size: 18px;
-                  font-family: 'Open Sans', sans-serif;
-                  color: #333;
-                  }
 
-.received_msg {
-  display: inline-block;
-  padding: 0 0 0 10px;
-  vertical-align: top;
-  width: 92%;
- }
- .received_withd_msg p {
-  background: #ebebeb none repeat scroll 0 0;
-  border-radius: 3px;
-  color: #646464;
-  font-size: 14px;
-  margin: 0;
-  padding: 5px 10px 5px 12px;
-  width: 100%;
-}
+<head lang="en">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HCI for Social Good: Voice and Hand Gesture Recognition</title>
+  <script src="js/canvasjs.min.js"></script>
+  <script src="js/jquery.min.js"></script>
+  <!-- <script src="js/bootstrap.min.js"></script> -->
+  <!-- <link rel="stylesheet" href="custom-select.css">  -->
+  <!-- <link rel="stylesheet" href="modal.css">   -->
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet">
 
-.received_withd_msg { width: 57%;}
-.mesgs {
-  float: left;
-  padding: 30px 15px 0 25px;
-  width: 60%;
-}
+  <script src="js/speech.js"></script>
+  <style type="text/css">
+    .div_spacing {
+      margin-bottom: 200px;
+    }
 
- .sent_msg p {
-  background: #05728f none repeat scroll 0 0;
-  border-radius: 3px;
-  font-size: 14px;
-  margin: 0; color:#fff;
-  padding: 5px 10px 5px 12px;
-  width:100%;
-}
-.outgoing_msg{ overflow:hidden; margin:26px 0 26px;}
-.sent_msg {
-  float: right;
-  width: 46%;
-}
+    .button1 {
+      background-color: white;
+      color: black;
+      border-radius: 12px;
+      border: 2px solid #4CAF50;
+      transition-duration: 0.3s;
+    }
 
-.msg_history {
-  height: 516px;
-  overflow-y: auto;
-}
-        </style>
-    </head>
-    <body>
+    .button1:hover {
+      background-color: #4CAF50;
+      color: white;
+    }
 
-        <div>
-                    <div align="center" aria-hidden="true">
-                       <!-- /*<img style="max-width:5%; max-height:5%;" src="images/codes.png" /> */ -->
-                       <font size="8" >HCI WEBAPP</font>
-                    </div>
-                    <!-- <button id = 'test'>pp</button> -->
-                    <div class = 'panel'>
-                        
-                          <div id='init'>  Are you visually impaired?</div>
-                        
-                         <div  style="display: none" id = "visual_div" aria-live="polite">
-                            <span>Visual Chat History</span><br/>
-                                <!-- <div class="panel-body  fixed-panel"> -->
-                                <div class="mesgs">
-                                  <div class="msg_history"></div>                                                                             
-                                    
-                               </div>
-                        </div>   
-                    </div>     
+    body {
+      font-size: 18px;
+      font-family: 'Open Sans', sans-serif;
+      color: #333;
+    }
+
+    .received_msg {
+      display: inline-block;
+      padding: 0 0 0 10px;
+      vertical-align: top;
+      width: 92%;
+    }
+
+    .received_withd_msg p {
+      background: #ebebeb none repeat scroll 0 0;
+      border-radius: 3px;
+      color: #646464;
+      font-size: 14px;
+      margin: 0;
+      padding: 5px 10px 5px 12px;
+      width: 100%;
+    }
+
+    .received_withd_msg {
+      width: 57%;
+    }
+
+    .mesgs {
+      float: left;
+      padding: 30px 15px 0 25px;
+      width: 60%;
+    }
+
+    .sent_msg p {
+      background: #05728f none repeat scroll 0 0;
+      border-radius: 3px;
+      font-size: 14px;
+      margin: 0;
+      color: #fff;
+      padding: 5px 10px 5px 12px;
+      width: 100%;
+    }
+
+    .outgoing_msg {
+      overflow: hidden;
+      margin: 26px 0 26px;
+    }
+
+    .sent_msg {
+      float: right;
+      width: 46%;
+    }
+
+    .msg_history {
+      height: 516px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div>
+    <div align="center" aria-hidden="true">
+      <!-- /*<img style="max-width:5%; max-height:5%;" src="images/codes.png" /> */ -->
+      <font size="8">HCI WEBAPP</font>
+    </div>
+    <!-- <button id = 'test'>pp</button> -->
+    <div class='panel'>
+
+      <div id='init'> Are you visually impaired?</div>
+
+      <div style="display: none" id="visual_div" aria-live="polite">
+        <span>Visual Chat History</span><br />
+        <!-- <div class="panel-body  fixed-panel"> -->
+        <div class="mesgs">
+          <div class="msg_history"></div>
+
         </div>
-    </body>
+      </div>
+    </div>
+  </div>
+</body>
+
 </html>
