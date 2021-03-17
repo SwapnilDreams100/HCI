@@ -45,11 +45,11 @@
     }
 
     .received_withd_msg p {
-      background: #ebebeb none repeat scroll 0 0;
+      background:#00b0ff none repeat scroll 0 0;
       border-radius: 3px;
-      color: #646464;
       font-size: 14px;
       margin: 0;
+      color: #fff;
       padding: 5px 10px 5px 12px;
       width: 100%;
     }
@@ -65,7 +65,7 @@
     }
 
     .sent_msg p {
-      background: #05728f none repeat scroll 0 0;
+      background: #0081cb none repeat scroll 0 0;
       border-radius: 3px;
       font-size: 14px;
       margin: 0;
@@ -93,6 +93,10 @@
     color: white !important;
     font-size: 1.9em !important;
     }
+    span{
+      
+    font-size: 1.9em !important;
+    }
   </style>
 </head>
 
@@ -109,12 +113,11 @@
     <div class="row">
       <div id='init' class="col-md-12">
         <div  class="d-flex justify-content-md-center align-items-center vh-100">
-          <span>Are you visually impaired?</span>
+          <span>Are you visually impaired?(Yes/No)</span>
         </div>
       </div>
-      
-    
-      <div class="col-md-12">
+      <div class="col-md-4"></div>
+      <div class="col-md-8">
         <div class='panel'>
           <div id="visual_div" aria-live="polite">
             <span>Visual Chat History</span><br />
@@ -125,14 +128,13 @@
           </div>
         </div>
       </div>
+      
     </div>
   </div>
   <script>
     $(document).ready(function(){
         // Hide displayed paragraphs
-        
-            $("#visual_div").hide();
-       
+        $("#visual_div").hide();
     });
     </script>
 </body>
